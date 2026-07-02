@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import re
+from pathlib import Path
+
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+
+DEFAULT_MODEL_DIR = Path("/data/2_data_server/cv-07/dice/the Korea Customs Service/project/model/qwen3_4b")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Qwen prompt-based text classification.")
+    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_DIR)
+    parser.add_argument("--labels", required=True, help="Comma-separated class labels.")
+    parser.add_argument("--text", default=None, help="Single text to classify.")
+    parser.add_argument("--input-csv", type=Path, default=None, help="CSV with a text column.")
+    parser.add_argument("--text-column", default="text")
+    parser.add_argument("--output-jsonl", type=Path, default=None)
+    parser.add_argument("--device", default="auto")
+    parser.add_argument("--max-new-tokens", type=int, default=64)
+    return parser.parse_args()
+
+
+def parse_labels(raw: str) -> list[str]:
+    labels = [item.strip() for item in raw.split(",") if item.strip()]
+    if not labels:
+        raise ValueError("--labels must contain at least one label")
+    return labels
+
+
+def build_prompt(text: str, labels: list[str]) -> str:
+    labels_text = ", ".join(labels)
+    return (
+        "You are a strict text classification system.\n"
+        "Classify the input text into exactly one of the allowed labels.\n"
+        f"Allowed labels: {labels_text}\n"
+        "Return only a compact JSON object with keys \"label\" and \"confidence\".\n"
+        "Do not include explanations.\n\n"
+        f"Text:\n{text}\n"
+    )
+
+
+def extract_json(text: str) -> dict:
+    match = re.search(r"\{.*?\}", text, flags=re.S)
+    if not match:
+        return {"label": text.strip(), "confidence": None}
+    try:
+        return json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return {"label": text.strip(), "confidence": None}
+
+
+def load_inputs(args: argparse.Namespace) -> list[dict]:
+    if args.text is not None:
+        return [{"id": "0", "text": args.text}]
+    if args.input_csv is None:
+        raise ValueError("Pass either --text or --input-csv")
+    rows = []
+    with args.input_csv.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for idx, row in enumerate(reader):
+            if args.text_column not in row:
+                raise KeyError(f"text column not found: {args.text_column}")
+            rows.append({"id": row.get("id", str(idx)), "text": row[args.text_column], "row": row})
+    return rows
+
+
+def main() -> None:
+    args = parse_args()
+    labels = parse_labels(args.labels)
+    inputs = load_inputs(args)
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model,
+        torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
+        device_map=args.device,
+        trust_remote_code=True,
+    )
+    model.eval()
+
+    results = []
+    for item in inputs:
+        prompt = build_prompt(item["text"], labels)
+        messages = [{"role": "user", "content": prompt}]
+        if hasattr(tokenizer, "apply_chat_template"):
+            text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        else:
+            text = prompt
+        encoded = tokenizer([text], return_tensors="pt").to(model.device)
+        with torch.no_grad():
+            output_ids = model.generate(
+                **encoded,
+                max_new_tokens=args.max_new_tokens,
+                do_sample=False,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+        generated = output_ids[0][encoded.input_ids.shape[-1] :]
+        decoded = tokenizer.decode(generated, skip_special_tokens=True).strip()
+        pred = extract_json(decoded)
+        result = {"id": item["id"], "text": item["text"], "raw": decoded, **pred}
+        results.append(result)
+        print(json.dumps(result, ensure_ascii=False))
+
+    if args.output_jsonl:
+        args.output_jsonl.parent.mkdir(parents=True, exist_ok=True)
+        with args.output_jsonl.open("w", encoding="utf-8") as f:
+            for result in results:
+                f.write(json.dumps(result, ensure_ascii=False) + "\n")
+
+
+if __name__ == "__main__":
+    main()
