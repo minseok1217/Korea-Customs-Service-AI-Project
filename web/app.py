@@ -17,19 +17,23 @@ MODEL_ROOT = PROJECT / "project/model"
 CUSTOMS_WEB_PY = Path("/data/2_data_server/cv-07/anaconda3/envs/customs_web/bin/python")
 YOLO_PY = Path("/data/2_data_server/cv-07/anaconda3/envs/yolov5/bin/python")
 
-YOLO_REPO = PROJECT / "model/yoloV5/1). AI 모델 소스코드/yolov5"
-YOLO_INFER_SCRIPT = MODEL_ROOT / "customs_web_app/yolo_infer_json.py"
-QWEN_SCRIPT = MODEL_ROOT / "qwen_text_classification/classify_text.py"
-QWEN_MODEL = MODEL_ROOT / "qwen3_4b"
+YOLO_REPO = MODEL_ROOT / "object_detection/yolov5"
+YOLO_INFER_SCRIPT = MODEL_ROOT / "object_detection/yolo_infer_json.py"
+QWEN_SCRIPT = MODEL_ROOT / "text_classification/qwen_text_classification/classify_text.py"
+QWEN_MODEL = MODEL_ROOT / "text_classification/qwen3_4b"
+DEFAULT_YOLO_CONF = 0.25
+DEFAULT_YOLO_IOU = 0.45
+DEFAULT_YOLO_IMGSZ = 896
+DEFAULT_YOLO_DEVICE = "0"
+DEFAULT_QWEN_DEVICE = "auto"
+DEFAULT_TIMEOUT_SECONDS = 180
 
 LABELS = [
     "송곳",
     "도끼",
     "배터리",
     "탄환",
-    "끌",
-    "전자담배",
-    "전자담배 액상",
+    "폭죽",
     "총기",
     "총기 부품",
     "망치",
@@ -41,7 +45,6 @@ LABELS = [
     "액체",
     "성냥",
     "손톱깎이",
-    "펜치",
     "휴대용 가스",
     "톱",
     "가위",
@@ -52,16 +55,20 @@ LABELS = [
     "SSD(솔리드 스테이트 드라이브)",
     "보조배터리",
     "태블릿PC",
-    "투척용 칼",
     "USB",
-    "폭죽",
+    "펜치",
+    "끌",
+    "전자담배",
+    "전자담배 액상",
+    "투척용 칼",
 ]
 
 CATEGORY_ROWS = [{"id": idx, "name": name, "supercategory": name} for idx, name in enumerate(LABELS, 1)]
 
 DEFAULT_WEIGHT_CANDIDATES = [
-    YOLO_REPO / "runs/train/231_mapped32_yolov5x6_e30/weights/best.pt",
+    YOLO_REPO / "runs/train/17_super_mapped_yolov5x6_e304/weights/best.pt",
     YOLO_REPO / "runs/train/17_super_mapped_yolov5x6_e303/weights/best.pt",
+    YOLO_REPO / "runs/train/231_mapped32_yolov5x6_e30/weights/best.pt",
     YOLO_REPO / "runs/train/231_super_mapped_yolov5x6_e302/weights/best.pt",
     YOLO_REPO / "weights/yolov5x6.pt",
 ]
@@ -238,24 +245,54 @@ def run_qwen(text: str, model_path: str, device: str, timeout: int) -> dict:
     return json.loads(lines[-1])
 
 
-def render_uploader(key: str) -> tuple[object, Image.Image | None]:
-    uploaded = st.file_uploader(
-        "Drag and drop file here",
-        type=["png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff"],
-        label_visibility="collapsed",
-        key=key,
-    )
-    image = read_image(uploaded)
-    if image is not None:
-        st.image(image, use_container_width=True)
-        st.download_button(
-            "Download original image",
-            image_download_bytes(image),
-            file_name="original_image.png",
-            mime="image/png",
-            key=f"{key}_download",
+def render_uploader(key: str) -> tuple[str | None, Image.Image | None]:
+    version_key = f"{key}_version"
+    bytes_key = f"{key}_bytes"
+    name_key = f"{key}_name"
+    if version_key not in st.session_state:
+        st.session_state[version_key] = 0
+    uploader_key = f"{key}_{st.session_state[version_key]}"
+
+    if bytes_key not in st.session_state:
+        uploaded = st.file_uploader(
+            "Drag and drop file here",
+            type=["png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff"],
+            label_visibility="collapsed",
+            key=uploader_key,
         )
-    return uploaded, image
+        if uploaded is not None:
+            st.session_state[bytes_key] = uploaded.getvalue()
+            st.session_state[name_key] = uploaded.name
+            st.rerun()
+        return None, None
+
+    image = Image.open(BytesIO(st.session_state[bytes_key])).convert("RGB")
+    image.load()
+    uploaded_name = st.session_state.get(name_key)
+    if image is not None:
+        clear_col, download_col, _ = st.columns([1, 2, 3])
+        with clear_col:
+            if st.button("Clear image", key=f"{uploader_key}_clear"):
+                st.session_state[version_key] += 1
+                st.session_state.pop(bytes_key, None)
+                st.session_state.pop(name_key, None)
+                for result_key in (
+                    "combined_detection",
+                    "combined_classification",
+                    "detect_result",
+                ):
+                    st.session_state.pop(result_key, None)
+                st.rerun()
+        with download_col:
+            st.download_button(
+                "Download original image",
+                image_download_bytes(image),
+                file_name="original_image.png",
+                mime="image/png",
+                key=f"{uploader_key}_download",
+            )
+        st.image(image, use_container_width=True)
+    return uploaded_name, image
 
 
 def render_agreement(detected_label: str | None, classified_label: str | None) -> None:
@@ -272,6 +309,16 @@ def render_agreement(detected_label: str | None, classified_label: str | None) -
         st.error("Object detection and text classification do not agree.")
 
 
+def render_category_summary() -> None:
+    st.caption(f"{len(LABELS)} categories")
+    for start in range(0, len(LABELS), 2):
+        cols = st.columns(2)
+        for offset, col in enumerate(cols):
+            idx = start + offset
+            if idx < len(LABELS):
+                col.write(f"{idx + 1}. {LABELS[idx]}")
+
+
 def render_detection_result(image: Image.Image, result: dict) -> tuple[str | None, float | None]:
     detections = result.get("detections", [])
     st.image(draw_detections(image, detections), caption="YOLOv5 detections", use_container_width=True)
@@ -283,7 +330,7 @@ def render_detection_result(image: Image.Image, result: dict) -> tuple[str | Non
     return detected_label, confidence
 
 
-def run_detection_button(uploaded, image: Image.Image | None, prefix: str) -> dict | None:
+def run_detection_button(uploaded_name: str | None, image: Image.Image | None, prefix: str) -> dict | None:
     if image is None:
         st.warning("Upload an image first.")
         return None
@@ -295,7 +342,7 @@ def run_detection_button(uploaded, image: Image.Image | None, prefix: str) -> di
         with st.spinner("Running YOLOv5 in yolov5 env..."):
             return run_yolo(
                 image=image,
-                suffix=Path(uploaded.name).suffix if uploaded is not None else ".png",
+                suffix=Path(uploaded_name).suffix if uploaded_name else ".png",
                 weights=yolo_weight,
                 conf=yolo_conf,
                 iou=yolo_iou,
@@ -329,12 +376,12 @@ def render_combined_task() -> None:
     image_col, text_col = st.columns([1.1, 0.9], gap="large")
     with image_col:
         st.subheader("Original Image")
-        uploaded, image = render_uploader("combined_image")
+        uploaded_name, image = render_uploader("combined_image")
     with text_col:
         st.subheader("Text")
         text = st.text_area(
             "Detailed declared item name",
-            placeholder="예: 리튬이온 보조배터리, 휴대용 라이터, 스테인리스 주방용 칼",
+            placeholder="예: 리튬이온 보조배터리, 휴대용 라이터, 스테인리스 주방용 칼\n여러 품명을 쉼표나 줄바꿈으로 입력해도 됩니다.",
             height=260,
             key="combined_text",
         )
@@ -349,7 +396,7 @@ def render_combined_task() -> None:
             with st.spinner("Running YOLOv5 in yolov5 env..."):
                 st.session_state.combined_detection = run_yolo(
                     image=image,
-                    suffix=Path(uploaded.name).suffix if uploaded is not None else ".png",
+                    suffix=Path(uploaded_name).suffix if uploaded_name else ".png",
                     weights=yolo_weight,
                     conf=yolo_conf,
                     iou=yolo_iou,
@@ -406,9 +453,9 @@ def render_detection_task() -> None:
     left_col, right_col = st.columns(2, gap="large")
     with left_col:
         st.subheader("Original Image")
-        uploaded, image = render_uploader("detect_image")
+        uploaded_name, image = render_uploader("detect_image")
         try:
-            result = run_detection_button(uploaded, image, "detect")
+            result = run_detection_button(uploaded_name, image, "detect")
             if result:
                 st.session_state.detect_result = result
         except Exception as exc:
@@ -430,7 +477,7 @@ def render_classification_task() -> None:
         st.subheader("Text")
         text = st.text_area(
             "Detailed declared item name",
-            placeholder="예: 리튬이온 보조배터리, 휴대용 라이터, 스테인리스 주방용 칼",
+            placeholder="예: 리튬이온 보조배터리, 휴대용 라이터, 스테인리스 주방용 칼\n여러 품명을 쉼표나 줄바꿈으로 입력해도 됩니다.",
             height=260,
             key="classify_text",
         )
@@ -455,6 +502,14 @@ def render_classification_task() -> None:
 
 
 weight_options = existing_weight_options()
+yolo_weight = weight_options[0] if weight_options else str(YOLO_REPO / "weights/yolov5x6.pt")
+yolo_conf = DEFAULT_YOLO_CONF
+yolo_iou = DEFAULT_YOLO_IOU
+yolo_imgsz = DEFAULT_YOLO_IMGSZ
+yolo_device = DEFAULT_YOLO_DEVICE
+qwen_model_path = str(QWEN_MODEL)
+qwen_device = DEFAULT_QWEN_DEVICE
+timeout_seconds = DEFAULT_TIMEOUT_SECONDS
 
 with st.sidebar:
     st.header("Task")
@@ -467,34 +522,11 @@ with st.sidebar:
         ],
         label_visibility="collapsed",
     )
-
-    st.divider()
-    st.subheader("YOLOv5 env")
-    st.caption(str(YOLO_PY))
-    if weight_options:
-        default_weight = weight_options[0]
-        selected_weight = st.selectbox("Weights", weight_options, index=0)
-        yolo_weight = st.text_input("Custom weight path", value=selected_weight)
-    else:
-        default_weight = str(YOLO_REPO / "weights/yolov5x6.pt")
-        yolo_weight = st.text_input("Custom weight path", value=default_weight)
-    yolo_conf = st.slider("Detection confidence", 0.01, 0.95, 0.25, 0.01)
-    yolo_iou = st.slider("IoU NMS", 0.10, 0.90, 0.45, 0.01)
-    yolo_imgsz = st.select_slider("Image size", options=[640, 768, 896, 1024, 1280], value=896)
-    yolo_device = st.text_input("YOLO CUDA device", value="0")
-
-    st.divider()
-    st.subheader("Qwen env")
-    st.caption(str(CUSTOMS_WEB_PY))
-    qwen_model_path = st.text_input("Qwen model path", value=str(QWEN_MODEL))
-    qwen_device = st.text_input("Qwen device map", value="auto")
-    timeout_seconds = st.slider("Task timeout seconds", 30, 600, 180, 30)
     with st.expander("Text classification categories"):
-        st.json(CATEGORY_ROWS)
+        render_category_summary()
 
     st.divider()
-    st.caption("Project path")
-    st.code(str(ROOT))
+    st.caption("Customs AI demo")
 
 
 if task == "Object Detection":

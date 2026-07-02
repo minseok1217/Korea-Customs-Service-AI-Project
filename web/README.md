@@ -12,6 +12,13 @@ cd web
 
 The Streamlit app runs in `customs_web`. YOLOv5 inference is called through the `yolov5` env from inside the app.
 
+## Model Layout
+
+- `model/text_classification/qwen_text_classification`: Qwen text classification scripts
+- `model/text_classification/qwen3_4b`: Qwen model files
+- `model/object_detection/yolo_infer_json.py`: YOLO JSON inference helper
+- `model/object_detection/yolov5`: copied YOLOv5 repository and trained weights
+
 ## Files
 
 - `app.py`: Streamlit web page

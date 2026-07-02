@@ -1,4 +1,4 @@
-# Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,python
+﻿# Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,python
 
 ### Python ###
@@ -197,7 +197,269 @@ pyrightconfig.json
 # Model weights and downloaded model caches
 model/qwen3_4b/*.safetensors
 model/qwen3_4b/.cache/
+model/text_classification/qwen3_4b/*.safetensors
+model/text_classification/qwen3_4b/.cache/
+model/object_detection/yolov5/
 *.pt
 *.pth
 *.onnx
 *.engine
+
+# Imported from model/object_detection/yolov5/.gitignore
+# Patterns are scoped to the copied YOLOv5 repository.
+# Repo-specific GitIgnore ----------------------------------------------------------------------------------------------
+model/object_detection/yolov5/**/*.jpg
+model/object_detection/yolov5/**/*.jpeg
+model/object_detection/yolov5/**/*.png
+model/object_detection/yolov5/**/*.bmp
+model/object_detection/yolov5/**/*.tif
+model/object_detection/yolov5/**/*.tiff
+model/object_detection/yolov5/**/*.heic
+model/object_detection/yolov5/**/*.JPG
+model/object_detection/yolov5/**/*.JPEG
+model/object_detection/yolov5/**/*.PNG
+model/object_detection/yolov5/**/*.BMP
+model/object_detection/yolov5/**/*.TIF
+model/object_detection/yolov5/**/*.TIFF
+model/object_detection/yolov5/**/*.HEIC
+model/object_detection/yolov5/**/*.mp4
+model/object_detection/yolov5/**/*.mov
+model/object_detection/yolov5/**/*.MOV
+model/object_detection/yolov5/**/*.avi
+model/object_detection/yolov5/**/*.data
+model/object_detection/yolov5/**/*.json
+model/object_detection/yolov5/**/*.cfg
+!model/object_detection/yolov5/**/setup.cfg
+!model/object_detection/yolov5/cfg/yolov3*.cfg
+
+model/object_detection/yolov5/**/storage.googleapis.com
+model/object_detection/yolov5/runs/*
+model/object_detection/yolov5/data/*
+model/object_detection/yolov5/data/images/*
+!model/object_detection/yolov5/data/*.yaml
+!model/object_detection/yolov5/data/hyps
+!model/object_detection/yolov5/data/scripts
+!model/object_detection/yolov5/data/images
+!model/object_detection/yolov5/data/images/zidane.jpg
+!model/object_detection/yolov5/data/images/bus.jpg
+!model/object_detection/yolov5/data/*.sh
+
+model/object_detection/yolov5/**/results*.csv
+
+# Datasets -------------------------------------------------------------------------------------------------------------
+model/object_detection/yolov5/coco/
+model/object_detection/yolov5/coco128/
+model/object_detection/yolov5/VOC/
+
+# MATLAB GitIgnore -----------------------------------------------------------------------------------------------------
+model/object_detection/yolov5/**/*.m~
+model/object_detection/yolov5/**/*.mat
+!model/object_detection/yolov5/**/targets*.mat
+
+# Neural Network weights -----------------------------------------------------------------------------------------------
+model/object_detection/yolov5/**/*.weights
+model/object_detection/yolov5/**/*.pt
+model/object_detection/yolov5/**/*.pb
+model/object_detection/yolov5/**/*.onnx
+model/object_detection/yolov5/**/*.engine
+model/object_detection/yolov5/**/*.mlmodel
+model/object_detection/yolov5/**/*.torchscript
+model/object_detection/yolov5/**/*.tflite
+model/object_detection/yolov5/**/*.h5
+model/object_detection/yolov5/*_saved_model/
+model/object_detection/yolov5/*_web_model/
+model/object_detection/yolov5/*_openvino_model/
+model/object_detection/yolov5/**/darknet53.conv.74
+model/object_detection/yolov5/**/yolov3-tiny.conv.15
+
+# GitHub Python GitIgnore ----------------------------------------------------------------------------------------------
+# Byte-compiled / optimized / DLL files
+model/object_detection/yolov5/__pycache__/
+model/object_detection/yolov5/**/*.py[cod]
+model/object_detection/yolov5/**/*$py.class
+
+# C extensions
+model/object_detection/yolov5/**/*.so
+
+# Distribution / packaging
+model/object_detection/yolov5/**/.Python
+model/object_detection/yolov5/env/
+model/object_detection/yolov5/build/
+model/object_detection/yolov5/develop-eggs/
+model/object_detection/yolov5/dist/
+model/object_detection/yolov5/downloads/
+model/object_detection/yolov5/eggs/
+model/object_detection/yolov5/.eggs/
+model/object_detection/yolov5/lib/
+model/object_detection/yolov5/lib64/
+model/object_detection/yolov5/parts/
+model/object_detection/yolov5/sdist/
+model/object_detection/yolov5/var/
+model/object_detection/yolov5/wheels/
+model/object_detection/yolov5/*.egg-info/
+model/object_detection/yolov5/wandb/
+model/object_detection/yolov5/**/.installed.cfg
+model/object_detection/yolov5/**/*.egg
+
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+model/object_detection/yolov5/**/*.manifest
+model/object_detection/yolov5/**/*.spec
+
+# Installer logs
+model/object_detection/yolov5/**/pip-log.txt
+model/object_detection/yolov5/**/pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+model/object_detection/yolov5/htmlcov/
+model/object_detection/yolov5/.tox/
+model/object_detection/yolov5/**/.coverage
+model/object_detection/yolov5/**/.coverage.*
+model/object_detection/yolov5/**/.cache
+model/object_detection/yolov5/**/nosetests.xml
+model/object_detection/yolov5/**/coverage.xml
+model/object_detection/yolov5/**/*.cover
+model/object_detection/yolov5/.hypothesis/
+
+# Translations
+model/object_detection/yolov5/**/*.mo
+model/object_detection/yolov5/**/*.pot
+
+# Django stuff:
+model/object_detection/yolov5/**/*.log
+model/object_detection/yolov5/**/local_settings.py
+
+# Flask stuff:
+model/object_detection/yolov5/instance/
+model/object_detection/yolov5/**/.webassets-cache
+
+# Scrapy stuff:
+model/object_detection/yolov5/**/.scrapy
+
+# Sphinx documentation
+model/object_detection/yolov5/docs/_build/
+
+# PyBuilder
+model/object_detection/yolov5/target/
+
+# Jupyter Notebook
+model/object_detection/yolov5/**/.ipynb_checkpoints
+
+# pyenv
+model/object_detection/yolov5/**/.python-version
+
+# celery beat schedule file
+model/object_detection/yolov5/**/celerybeat-schedule
+
+# SageMath parsed files
+model/object_detection/yolov5/**/*.sage.py
+
+# dotenv
+model/object_detection/yolov5/**/.env
+
+# virtualenv
+model/object_detection/yolov5/**/.venv*
+model/object_detection/yolov5/venv*/
+model/object_detection/yolov5/ENV*/
+
+# Spyder project settings
+model/object_detection/yolov5/**/.spyderproject
+model/object_detection/yolov5/**/.spyproject
+
+# Rope project settings
+model/object_detection/yolov5/**/.ropeproject
+
+# mkdocs documentation
+model/object_detection/yolov5/**/site
+
+# mypy
+model/object_detection/yolov5/.mypy_cache/
+
+
+# https://github.com/github/gitignore/blob/master/Global/macOS.gitignore -----------------------------------------------
+
+# General
+model/object_detection/yolov5/**/.DS_Store
+model/object_detection/yolov5/**/.AppleDouble
+model/object_detection/yolov5/**/.LSOverride
+
+# Icon must end with two \r
+model/object_detection/yolov5/**/Icon
+model/object_detection/yolov5/**/Icon?
+
+# Thumbnails
+model/object_detection/yolov5/**/._*
+
+# Files that might appear in the root of a volume
+model/object_detection/yolov5/**/.DocumentRevisions-V100
+model/object_detection/yolov5/**/.fseventsd
+model/object_detection/yolov5/**/.Spotlight-V100
+model/object_detection/yolov5/**/.TemporaryItems
+model/object_detection/yolov5/**/.Trashes
+model/object_detection/yolov5/**/.VolumeIcon.icns
+model/object_detection/yolov5/**/.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+model/object_detection/yolov5/**/.AppleDB
+model/object_detection/yolov5/**/.AppleDesktop
+model/object_detection/yolov5/**/Network Trash Folder
+model/object_detection/yolov5/**/Temporary Items
+model/object_detection/yolov5/**/.apdisk
+
+
+# https://github.com/github/gitignore/blob/master/Global/JetBrains.gitignore
+# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio and WebStorm
+# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
+
+# User-specific stuff:
+model/object_detection/yolov5/.idea/*
+model/object_detection/yolov5/.idea/**/workspace.xml
+model/object_detection/yolov5/.idea/**/tasks.xml
+model/object_detection/yolov5/.idea/dictionaries
+model/object_detection/yolov5/**/.html  # Bokeh Plots
+model/object_detection/yolov5/**/.pg  # TensorFlow Frozen Graphs
+model/object_detection/yolov5/**/.avi # videos
+
+# Sensitive or high-churn files:
+model/object_detection/yolov5/.idea/**/dataSources/
+model/object_detection/yolov5/.idea/**/dataSources.ids
+model/object_detection/yolov5/.idea/**/dataSources.local.xml
+model/object_detection/yolov5/.idea/**/sqlDataSources.xml
+model/object_detection/yolov5/.idea/**/dynamic.xml
+model/object_detection/yolov5/.idea/**/uiDesigner.xml
+
+# Gradle:
+model/object_detection/yolov5/.idea/**/gradle.xml
+model/object_detection/yolov5/.idea/**/libraries
+
+# CMake
+model/object_detection/yolov5/cmake-build-debug/
+model/object_detection/yolov5/cmake-build-release/
+
+# Mongo Explorer plugin:
+model/object_detection/yolov5/.idea/**/mongoSettings.xml
+
+## File-based project format:
+model/object_detection/yolov5/**/*.iws
+
+## Plugin-specific files:
+
+# IntelliJ
+model/object_detection/yolov5/out/
+
+# mpeltonen/sbt-idea plugin
+model/object_detection/yolov5/.idea_modules/
+
+# JIRA plugin
+model/object_detection/yolov5/**/atlassian-ide-plugin.xml
+
+# Cursive Clojure plugin
+model/object_detection/yolov5/.idea/replstate.xml
+
+# Crashlytics plugin (for Android Studio and IntelliJ)
+model/object_detection/yolov5/**/com_crashlytics_export_strings.xml
+model/object_detection/yolov5/**/crashlytics.properties
+model/object_detection/yolov5/**/crashlytics-build.properties
+model/object_detection/yolov5/**/fabric.properties

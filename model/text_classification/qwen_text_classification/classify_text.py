@@ -36,12 +36,33 @@ def parse_labels(raw: str) -> list[str]:
 
 def build_prompt(text: str, labels: list[str]) -> str:
     labels_text = ", ".join(labels)
+    examples = [
+        ("portable lithium ion power bank, USB-C charger", "보조배터리"),
+        ("kitchen knife and stainless steel blade set", "칼"),
+        ("e-cigarette device with refill liquid pods", "전자담배"),
+        ("smartphone, tablet PC, laptop computer", "노트북"),
+        ("metal handcuffs for security equipment", "수갑"),
+        ("fireworks and small pyrotechnic items", "폭죽"),
+        ("screwdriver, pliers, and adjustable wrench", "드라이버"),
+        ("bullets for sporting rifle", "탄환"),
+    ]
+    examples_text = "\n".join(
+        f'Input: "{example_text}"\nOutput: {{"label": "{label}", "confidence": 0.90}}'
+        for example_text, label in examples
+        if label in labels
+    )
     return (
-        "You are a strict text classification system.\n"
-        "Classify the input text into exactly one of the allowed labels.\n"
+        "You are a strict customs declaration text classification system.\n"
+        "Classify detailed declared item names into exactly one of the allowed Korean labels.\n"
+        "The input may contain one item, multiple item names, OCR text, or a short product description.\n"
+        "If multiple items are present, choose the most relevant restricted or inspection-sensitive item.\n"
+        "Use semantic meaning, not exact string matching.\n"
         f"Allowed labels: {labels_text}\n"
         "Return only a compact JSON object with keys \"label\" and \"confidence\".\n"
+        "The label value must be exactly one of the allowed labels.\n"
         "Do not include explanations.\n\n"
+        "Examples:\n"
+        f"{examples_text}\n\n"
         f"Text:\n{text}\n"
     )
 
