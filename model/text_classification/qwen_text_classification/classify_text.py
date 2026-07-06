@@ -11,19 +11,21 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
-DEFAULT_MODEL_DIR = Path("/data/2_data_server/cv-07/dice/the Korea Customs Service/project/model/qwen3_4b")
+DEFAULT_MODEL_DIR = Path(
+    "/data/2_data_server/cv-07/dice/the Korea Customs Service/project/model/text_classification/qwen3_4b"
+)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Qwen prompt-based text classification.")
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_DIR)
     parser.add_argument("--labels", required=True, help="Comma-separated class labels.")
-    parser.add_argument("--text", default=None, help="Single text to classify.")
+    parser.add_argument("--text", default=None, help="Single or multi-item text to classify.")
     parser.add_argument("--input-csv", type=Path, default=None, help="CSV with a text column.")
     parser.add_argument("--text-column", default="text")
     parser.add_argument("--output-jsonl", type=Path, default=None)
     parser.add_argument("--device", default="auto")
-    parser.add_argument("--max-new-tokens", type=int, default=64)
+    parser.add_argument("--max-new-tokens", type=int, default=256)
     return parser.parse_args()
 
 
@@ -37,30 +39,31 @@ def parse_labels(raw: str) -> list[str]:
 def build_prompt(text: str, labels: list[str]) -> str:
     labels_text = ", ".join(labels)
     examples = [
-        ("portable lithium ion power bank, USB-C charger", "보조배터리"),
-        ("kitchen knife and stainless steel blade set", "칼"),
-        ("e-cigarette device with refill liquid pods", "전자담배"),
-        ("smartphone, tablet PC, laptop computer", "노트북"),
-        ("metal handcuffs for security equipment", "수갑"),
-        ("fireworks and small pyrotechnic items", "폭죽"),
-        ("screwdriver, pliers, and adjustable wrench", "드라이버"),
-        ("bullets for sporting rifle", "탄환"),
+        ("handcuff", {"수갑": 1}),
+        ("water bottle, handcuff", {"수갑": 1}),
+        ("portable lithium ion power bank, USB-C charger", {"보조배터리": 1, "USB": 1}),
+        ("kitchen knife and stainless steel blade set", {"칼": 1}),
+        ("e-cigarette device with refill liquid pods", {"전자담배": 1, "전자담배 액상": 1}),
+        ("smartphone, tablet PC, laptop computer", {"스마트폰": 1, "태블릿PC": 1, "노트북": 1}),
+        ("fireworks and small pyrotechnic items", {"폭죽": 1}),
+        ("screwdriver, pliers, and adjustable wrench", {"드라이버": 1, "펜치": 1, "스패너": 1}),
+        ("bullets for sporting rifle", {"탄환": 1}),
     ]
     examples_text = "\n".join(
-        f'Input: "{example_text}"\nOutput: {{"label": "{label}", "confidence": 0.90}}'
-        for example_text, label in examples
-        if label in labels
+        f'Input: "{example_text}"\nOutput: {json.dumps({"counts": counts}, ensure_ascii=False)}'
+        for example_text, counts in examples
     )
     return (
         "You are a strict customs declaration text classification system.\n"
-        "Classify detailed declared item names into exactly one of the allowed Korean labels.\n"
+        "Classify detailed declared item names into the allowed Korean labels.\n"
         "The input may contain one item, multiple item names, OCR text, or a short product description.\n"
-        "If multiple items are present, choose the most relevant restricted or inspection-sensitive item.\n"
+        "If multiple items are present, classify each relevant item and aggregate counts by label.\n"
+        "Ignore items that do not belong to any allowed label.\n"
         "Use semantic meaning, not exact string matching.\n"
         f"Allowed labels: {labels_text}\n"
-        "Return only a compact JSON object with keys \"label\" and \"confidence\".\n"
-        "The label value must be exactly one of the allowed labels.\n"
-        "Do not include explanations.\n\n"
+        "Return only a compact JSON object with key \"counts\".\n"
+        "The counts object maps allowed label strings to integer counts.\n"
+        "Do not include explanations, markdown, XML tags, or <think> text.\n\n"
         "Examples:\n"
         f"{examples_text}\n\n"
         f"Text:\n{text}\n"
@@ -68,13 +71,25 @@ def build_prompt(text: str, labels: list[str]) -> str:
 
 
 def extract_json(text: str) -> dict:
-    match = re.search(r"\{.*?\}", text, flags=re.S)
-    if not match:
-        return {"label": text.strip(), "confidence": None}
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        counts = {}
+        for line in cleaned.splitlines():
+            match = re.match(r"\s*([^:：]+)\s*[:：]\s*(\d+)\s*$", line)
+            if match:
+                counts[match.group(1).strip()] = int(match.group(2))
+        return {"counts": counts, "raw_text": cleaned}
     try:
-        return json.loads(match.group(0))
+        parsed = json.loads(cleaned[start : end + 1])
     except json.JSONDecodeError:
-        return {"label": text.strip(), "confidence": None}
+        return {"counts": {}, "raw_text": cleaned}
+    if "counts" not in parsed and "label" in parsed:
+        parsed = {"counts": {str(parsed["label"]): 1}, **parsed}
+    if "counts" not in parsed:
+        parsed["counts"] = {}
+    return parsed
 
 
 def load_inputs(args: argparse.Namespace) -> list[dict]:
@@ -111,10 +126,22 @@ def main() -> None:
         prompt = build_prompt(item["text"], labels)
         messages = [{"role": "user", "content": prompt}]
         if hasattr(tokenizer, "apply_chat_template"):
-            text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            try:
+                rendered_prompt = tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    enable_thinking=False,
+                )
+            except TypeError:
+                rendered_prompt = tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
         else:
-            text = prompt
-        encoded = tokenizer([text], return_tensors="pt").to(model.device)
+            rendered_prompt = prompt
+        encoded = tokenizer([rendered_prompt], return_tensors="pt").to(model.device)
         with torch.no_grad():
             output_ids = model.generate(
                 **encoded,

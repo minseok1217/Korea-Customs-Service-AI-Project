@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import html
 import json
 import subprocess
 import tempfile
@@ -109,21 +108,6 @@ st.markdown(
         border: 1px dashed rgba(255, 255, 255, 0.2);
         border-radius: 8px;
         color: #9ca3af;
-    }
-    .agreement-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.95rem;
-    }
-    .agreement-table th,
-    .agreement-table td {
-        padding: 0.65rem 0.75rem;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-        text-align: left;
-    }
-    .agreement-table th {
-        color: #64748b;
-        font-weight: 700;
     }
     </style>
     """,
@@ -387,89 +371,28 @@ def get_classification_counts(result: dict | None) -> dict[str, int]:
     return {str(label): 1} if label else {}
 
 
-def get_detection_counts(result: dict | None) -> dict[str, int]:
-    if not result:
-        return {}
-    counts: dict[str, int] = {}
-    for det in result.get("detections", []):
-        label = str(det.get("class", "")).strip()
-        if not label:
-            continue
-        counts[label] = counts.get(label, 0) + 1
-    return counts
-
-
-def render_count_lines(counts: dict[str, int], empty_text: str = "No result.") -> None:
+def render_count_lines(counts: dict[str, int]) -> None:
     if not counts:
-        st.markdown(f"<div class='empty-output'>{empty_text}</div>", unsafe_allow_html=True)
+        st.markdown("<div class='empty-output'>No classification result.</div>", unsafe_allow_html=True)
         return
     for label, count in counts.items():
         st.write(f"{label} : {count}")
 
 
-def render_agreement(detection_counts: dict[str, int], classified_counts: dict[str, int]) -> None:
-    if not detection_counts or not classified_counts:
+def render_agreement(detected_label: str | None, classified_counts: dict[str, int]) -> None:
+    if not detected_label or not classified_counts:
         st.metric("Final check", "NO RESULT")
-        st.caption("Both task results are required.")
+        st.warning("Both task results are required.")
         return
 
-    normalized_detection = {normalize_label(label): (label, count) for label, count in detection_counts.items()}
-    normalized_classification = {normalize_label(label): (label, count) for label, count in classified_counts.items()}
-    all_keys = sorted(set(normalized_detection) | set(normalized_classification))
-
-    rows = []
-    exact_match = bool(all_keys)
-    any_label_overlap = False
-    for key in all_keys:
-        det_label, det_count = normalized_detection.get(key, ("", 0))
-        cls_label, cls_count = normalized_classification.get(key, ("", 0))
-        label = det_label or cls_label
-        if det_count > 0 and cls_count > 0:
-            any_label_overlap = True
-        if det_count == cls_count and det_count > 0:
-            status = "MATCH"
-            color = "#15803d"
-            bg = "rgba(21, 128, 61, 0.14)"
-        elif det_count > 0 and cls_count > 0:
-            status = "COUNT DIFF"
-            color = "#b45309"
-            bg = "rgba(180, 83, 9, 0.14)"
-            exact_match = False
-        else:
-            status = "MISMATCH"
-            color = "#b91c1c"
-            bg = "rgba(185, 28, 28, 0.14)"
-            exact_match = False
-        rows.append((label, det_count, cls_count, status, color, bg))
-
-    st.metric("Final check", "MATCH" if exact_match and any_label_overlap else "MISMATCH")
-    table_rows = "\n".join(
-        f"""
-        <tr style="background:{bg};">
-            <td>{html.escape(str(label))}</td>
-            <td>{det_count}</td>
-            <td>{cls_count}</td>
-            <td><span style="color:{color}; font-weight:700;">{status}</span></td>
-        </tr>
-        """
-        for label, det_count, cls_count, status, color, bg in rows
-    )
-    st.markdown(
-        f"""
-        <table class="agreement-table">
-            <thead>
-                <tr>
-                    <th>Label</th>
-                    <th>Object Detection</th>
-                    <th>Text Classification</th>
-                    <th>Result</th>
-                </tr>
-            </thead>
-            <tbody>{table_rows}</tbody>
-        </table>
-        """,
-        unsafe_allow_html=True,
-    )
+    is_match = normalize_label(detected_label) in {
+        normalize_label(label) for label, count in classified_counts.items() if count > 0
+    }
+    st.metric("Final check", "MATCH" if is_match else "MISMATCH")
+    if is_match:
+        st.success("Object detection and text classification agree.")
+    else:
+        st.error("Object detection and text classification do not agree.")
 
 
 def render_category_summary() -> None:
@@ -482,12 +405,15 @@ def render_category_summary() -> None:
                 col.write(f"{idx + 1}. {LABELS[idx]}")
 
 
-def render_detection_result(image: Image.Image, result: dict) -> dict[str, int]:
+def render_detection_result(image: Image.Image, result: dict) -> tuple[str | None, float | None]:
     detections = result.get("detections", [])
     st.image(draw_detections(image, detections), caption="YOLOv5 detections", use_container_width=True)
-    detection_counts = get_detection_counts(result)
-    render_count_lines(detection_counts, empty_text="No detection result.")
-    return detection_counts
+    detected_label, confidence = top_detection_label(detections)
+    st.metric("Top detected label", detected_label or "None")
+    st.metric("Confidence", f"{confidence:.2%}" if confidence is not None else "-")
+    with st.expander("Detection JSON"):
+        st.json(detections)
+    return detected_label, confidence
 
 
 def run_detection_button(uploaded_name: str | None, image: Image.Image | None, prefix: str) -> dict | None:
@@ -579,14 +505,14 @@ def render_combined_task() -> None:
 
     st.divider()
     det_col, cls_col, agree_col = st.columns(3, gap="large")
-    detection_counts: dict[str, int] = {}
+    detected_label = None
     classified_counts: dict[str, int] = {}
 
     with det_col:
         st.subheader("Object Detection")
         result = st.session_state.get("combined_detection")
         if image is not None and result:
-            detection_counts = render_detection_result(image, result)
+            detected_label, _ = render_detection_result(image, result)
         else:
             st.markdown("<div class='empty-output'>No detection result.</div>", unsafe_allow_html=True)
 
@@ -603,7 +529,7 @@ def render_combined_task() -> None:
 
     with agree_col:
         st.subheader("Agreement")
-        render_agreement(detection_counts, classified_counts)
+        render_agreement(detected_label, classified_counts)
 
 
 def render_detection_task() -> None:
