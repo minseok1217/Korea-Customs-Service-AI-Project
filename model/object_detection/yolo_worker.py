@@ -15,11 +15,11 @@ import torch
 PROJECT = Path("/data/2_data_server/cv-07/dice/the Korea Customs Service/project")
 YOLO_REPO =  Path("/data/2_data_server/cv-07/dice/the Korea Customs Service/model/yoloV5/1). AI 모델 소스코드/yolov5")
 WEIGHT_CANDIDATES = [
-    YOLO_REPO / "runs/train/17_super_mapped_yolov5x6_e304/weights/best.pt",
-    YOLO_REPO / "runs/train/17_super_mapped_yolov5x6_e303/weights/best.pt",
-    YOLO_REPO / "runs/train/231_mapped32_yolov5x6_e30_fresh_save_period1/weights/best.pt",
-    YOLO_REPO / "runs/train/231_mapped32_yolov5x6_e30/weights/best.pt",
-    YOLO_REPO / "runs/train/231_super_mapped_yolov5x6_e302/weights/best.pt",
+    # YOLO_REPO / "runs/train/17_super_mapped_yolov5x6_e304/weights/best.pt",
+    # YOLO_REPO / "runs/train/17_super_mapped_yolov5x6_e303/weights/best.pt",
+    # YOLO_REPO / "runs/train/231_mapped32_yolov5x6_e30_fresh_save_period1/weights/best.pt",
+    # YOLO_REPO / "runs/train/231_mapped32_yolov5x6_e30/weights/best.pt",
+    # YOLO_REPO / "runs/train/231_super_mapped_yolov5x6_e302/weights/best.pt",
     YOLO_REPO / "runs/train/231_super_mapped_no_aerosol32_yolov5x6_e30/weights/best.pt",
 ]
 DEFAULT_WEIGHTS = next((path for path in WEIGHT_CANDIDATES if path.exists()), WEIGHT_CANDIDATES[0])

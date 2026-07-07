@@ -463,3 +463,17 @@ model/object_detection/yolov5/**/com_crashlytics_export_strings.xml
 model/object_detection/yolov5/**/crashlytics.properties
 model/object_detection/yolov5/**/crashlytics-build.properties
 model/object_detection/yolov5/**/fabric.properties
+
+# Local backup files created during web edits
+*.bak_*
+web/*.bak_*
+
+# Llama / HuggingFace local model downloads
+model/text_classification/llama4_scout_17b_16e_instruct/
+model/text_classification/llama*/
+model/text_classification/**/.cache/
+model/text_classification/**/*.safetensors
+model/text_classification/**/*.bin
+model/text_classification/**/*.gguf
+model/text_classification/**/*.pt
+
